@@ -1,11 +1,29 @@
-﻿using UnityEngine;
+﻿/**************************************************************************
+ * Copyright (C) 2016 Rendease Co., Ltd.
+ * All rights reserved.
+ *
+ * This program is commercial software: you must not redistribute it 
+ * and/or modify it without written permission from Rendease Co., Ltd.
+ *
+ * This program is distributed in the hope that it will be useful, 
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the 
+ * End User License Agreement for more details.
+ *
+ * You should have received a copy of the End User License Agreement along 
+ * with this program.  If not, see <http://www.rendease.com/licensing/>
+ *************************************************************************/
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class ExportESS : MonoBehaviour {
-    string[] export_furniture_model_tags = new[] { "furniture" };
-    static Mesh exportMesh;
+
+    /**< 需要导出的家具TAG类型 */
+    public string[] exportFurnitureModelTags = new[] { "furniture" };
+
     EssWriter essWriter = new EssWriter();
 
     Matrix4x4 l2rMatrix = new Matrix4x4();
@@ -15,13 +33,12 @@ public class ExportESS : MonoBehaviour {
 
     public ExportESS(string essPath, string essFileName)
     {
-        //essWriter.Initialize("E:/Elara_SDK_1_0_54/bin/", "test.ess");
-        //essWriter.Initialize(essPath, essFileName);
+        essWriter.Initialize(essPath, essFileName);
     }
 
     public ExportESS()
     {
-        //essWriter.Initialize();
+        essWriter.Initialize();
     }
 
 
@@ -43,15 +60,16 @@ public class ExportESS : MonoBehaviour {
 
         renderInstList.Clear();
         meshMap.Clear();
-
-        essWriter.Initialize("E:/Elara_SDK_1_0_54/bin/", "test.ess");
     }
 	
 	// Update is called once per frame
 	void Update () {
 	
-	}    
+	}
 
+    /** 导出场景接口
+     * \return string ess的字符流数据
+     */
     public string ExportFromScene()
     {
         resetData();
@@ -68,14 +86,13 @@ public class ExportESS : MonoBehaviour {
         GameObject[] allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
         foreach (GameObject gameObj in allObjects)
         {
-            //Debug.Log("tag = " + gameObj.tag);
-            int findRet = Array.IndexOf(export_furniture_model_tags, gameObj.tag);
+            int findRet = Array.IndexOf(exportFurnitureModelTags, gameObj.tag);
             if(findRet >= 0)
             {
                 MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent("MeshFilter");
                 if(viewedModelFilter)
                 {
-                    exportMesh = viewedModelFilter.mesh;
+                    Mesh exportMesh = viewedModelFilter.mesh;
                     Vector3[] vertexs = exportMesh.vertices;
                     int[] indexs = exportMesh.GetIndices(0);
                          
@@ -91,10 +108,9 @@ public class ExportESS : MonoBehaviour {
         addInstanceGroup();
         addRenderCommand();
 
-        string retString = essWriter.ToString();
         essWriter.Close();
 
-        return retString;
+        return essWriter.getEssDataString();
     }
 
     void addCameraData(Camera cam)
@@ -110,7 +126,6 @@ public class ExportESS : MonoBehaviour {
 
         essWriter.BeginNode("instance", "caminst1");
         essWriter.AddRef("element", "cam1");
-
         Matrix4x4 camMat = cam.transform.localToWorldMatrix;
         camMat = l2rMatrix * camMat * l2rMatrix;
         essWriter.AddMatrix("transform", camMat.transpose);
@@ -129,14 +144,14 @@ public class ExportESS : MonoBehaviour {
 
     void addDirLight(Light light)
     {
+        //暂时不需要导出灯光
         essWriter.BeginNode("directlight", "dir_light");
         essWriter.AddScaler("intensity", light.intensity);
         essWriter.AddEnum("face", "front");
 	    essWriter.AddColor("color", light.color);
-	    //essWriter.AddScaler("hardness", hardness);
         essWriter.EndNode();
         
-        //需要添加transform矩阵
+        //TODO:需要添加transform矩阵
     }
 
     void addGlobalEnvLight()

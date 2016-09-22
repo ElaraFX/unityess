@@ -1,17 +1,33 @@
-﻿using UnityEngine;
+﻿/**************************************************************************
+ * Copyright (C) 2016 Rendease Co., Ltd.
+ * All rights reserved.
+ *
+ * This program is commercial software: you must not redistribute it 
+ * and/or modify it without written permission from Rendease Co., Ltd.
+ *
+ * This program is distributed in the hope that it will be useful, 
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the 
+ * End User License Agreement for more details.
+ *
+ * You should have received a copy of the End User License Agreement along 
+ * with this program.  If not, see <http://www.rendease.com/licensing/>
+ *************************************************************************/
+
 using System.Collections;
 using System.IO;
 using System.Collections.Generic;
 using System;
 using System.Text;
+using UnityEngine;
 using UnityEngine.Assertions;
 
 public class EssWriter : MonoBehaviour {
-    //ess data
-    StreamWriter sw; //write to file
-    string essString; //write to string
+    string essDataString; /**< ess字符流数据 */
 
-    public bool writeToString = true;
+    public bool writeToFile = false;
+    string path = ""; /**< ess写入文件路径 */
+    string essFileName = "";
 
 	// Use this for initialization
 	void Start () {
@@ -23,39 +39,43 @@ public class EssWriter : MonoBehaviour {
 	
 	}
     
-    public void CreateFile(string path, string name)
+    public StreamWriter CreateFile(string path, string name)
     {
-        //文件流信息
+        StreamWriter sw;
         Debug.Log("path = " + path);
         FileInfo t = new FileInfo(path + "//" + name);
         if (!t.Exists)
         {
-            //如果此文件不存在则创建
+            /**< 如果此文件不存在则创建 */
             sw = t.CreateText();
         }
         else
         {
-            //如果此文件存在删除内容
+            /**< 如果此文件存在删除内容 */
             t.Delete();
             sw = t.CreateText();
         }
+        return sw;
     }
 
     public void Initialize(string path, string filename)
     {
-        writeToString = false;
-        CreateFile(path, filename);
+        writeToFile = true;
+        this.path = path;
+        essFileName = filename;
     }
 
     public void Initialize()
     {
-        writeToString = true;
+        writeToFile = false;
     }
 
     public void Close()
     {
-        if(!writeToString)
+        if(writeToFile)
         {
+            StreamWriter sw = CreateFile(path, essFileName);
+            sw.WriteLine(essDataString);
             sw.Close();
             sw.Dispose();
         }
@@ -63,65 +83,65 @@ public class EssWriter : MonoBehaviour {
 
 	public void BeginNode(string type, string name)
     {        
-        sw.WriteLine("node \"{0}\" \"{1}\"", type, name);
+        essDataString += String.Format("\nnode \"{0}\" \"{1}\"", type, name);
     }
 
 	public void LinkParam(string input, string shader, string output)
     {
-        sw.WriteLine("\tparam_link \"{0}\" \"{1}\" \"{2}\"", input, shader, output);
+        essDataString += String.Format("\n\tparam_link \"{0}\" \"{1}\" \"{2}\"", input, shader, output);
     }
 
 	public void AddScaler(string name, float value)
     {
-        sw.WriteLine("\tscalar \"{0}\" {1}", name, value);
+        essDataString += String.Format("\n\tscalar \"{0}\" {1}", name, value);
     }
 
 	public void AddInt(string name, int value)
     {
-        sw.WriteLine("\tint \"{0}\" {1}", name, value);
+        essDataString += String.Format("\n\tint \"{0}\" {1}", name, value);
     }
 
 	public void AddVector4(string name, Vector4 value)
     {
-        sw.WriteLine("\tvector4 \"{0}\" {1} {2} {3} {4}", name, value.x, value.y, value.z, value.w);
+        essDataString += String.Format("\n\tvector4 \"{0}\" {1} {2} {3} {4}", name, value.x, value.y, value.z, value.w);
     }
 
 	public void AddVector3(string name, Vector3 value)
     {
-        sw.WriteLine("\tvector \"{0}\" {1} {2} {3}", name, value.x, value.y, value.z);
+        essDataString += String.Format("\n\tvector \"{0}\" {1} {2} {3}", name, value.x, value.y, value.z);
     }
 
 	public void AddToken(string name, string value)
     {
-        sw.WriteLine("\ttoken \"{0}\" {1}", name, value);
+        essDataString += String.Format("\n\ttoken \"{0}\" {1}", name, value);
     }
 
 	public void AddColor(string name, Vector4 value)
     {
-        sw.WriteLine("\tcolor \"{0}\" {1} {2} {3}", name, value.x * value.w, value.y * value.w, value.z * value.w);
+        essDataString += String.Format("\n\tcolor \"{0}\" {1} {2} {3}", name, value.x * value.w, value.y * value.w, value.z * value.w);
     }
 
 	public void AddColor(string name, Vector3 value)
     {
-        sw.WriteLine("\tcolor \"{0}\" {1} {2} {3}", name, value.x, value.y, value.z);
+        essDataString += String.Format("\n\tcolor \"{0}\" {1} {2} {3}", name, value.x, value.y, value.z);
     }
 
 	public void AddBool(string name, bool value)
     {
-        sw.WriteLine("\tbool \"{0}\" {1}", name, (value ? "on" : "off"));
+        essDataString += String.Format("\n\tbool \"{0}\" {1}", name, (value ? "on" : "off"));
     }
 
 	public void AddRef(string name, string refVal)
     {
-        sw.WriteLine("\tref \"{0}\" \"{1}\"", name, refVal);
+        essDataString += String.Format("\n\tref \"{0}\" \"{1}\"", name, refVal);
     }
 
 	public void AddRefGroup(string grouptype, List<string> refelements)
     {
-        sw.WriteLine("\tref[] \"{0}\" 1", grouptype);
+        essDataString += String.Format("\n\tref[] \"{0}\" 1", grouptype);
         foreach(string var in refelements)
         {
-            sw.WriteLine("\t\t\"{0}\"", var);
+            essDataString += String.Format("\n\t\t\"{0}\"", var);
         }
     }
 
@@ -137,32 +157,32 @@ public class EssWriter : MonoBehaviour {
                 matStr = matStr + val + " ";
 		    }		
 	    }
-        sw.WriteLine("\tmatrix \"{0}\" {1}", name, matStr);
+        essDataString += String.Format("\n\tmatrix \"{0}\" {1}", name, matStr);
     }
 
 	public void AddEnum(string name, string value)
     {
-        sw.WriteLine("\tenum \"{0}\" \"{1}\"", name, value);
+        essDataString += String.Format("\n\tenum \"{0}\" \"{1}\"", name, value);
     }
 
 	public void AddRenderCommand(string inst_group_name, string cam_name, string option_name)
     {
-        sw.WriteLine("render \"{0}\" \"{1}\" \"{2}\"", inst_group_name, cam_name, option_name);
+        essDataString += String.Format("\nrender \"{0}\" \"{1}\" \"{2}\"", inst_group_name, cam_name, option_name);
     }
 
 	public void AddDeclare()
     {
-        sw.WriteLine("\tdeclare");
+        essDataString += String.Format("\n\tdeclare");
     }
 
 	public void AddDeclare(string type, string name, string storage_class)
     {
-        sw.WriteLine("\tdeclare {0} \"{1}\" {2}", type, name, storage_class);
+        essDataString += String.Format("\n\tdeclare {0} \"{1}\" {2}", type, name, storage_class);
     }
 
     public void AddIndexArray(string name, int[] indexs, bool faceVarying)
     {
-        sw.WriteLine("\tindex[] \"{0}\" 1", name);
+        essDataString += String.Format("\n\tindex[] \"{0}\" 1", name);
 
         Assert.IsTrue(faceVarying == false); //暂时不加faceVarying
 
@@ -171,27 +191,31 @@ public class EssWriter : MonoBehaviour {
 		{            
             lineIndexDataStr = lineIndexDataStr + indexs[i] + " ";
 		}
-        sw.WriteLine("\t\t{0}", lineIndexDataStr);
+        essDataString += String.Format("\n\t\t{0}", lineIndexDataStr);
 
     }
 
     public void AddPointArray(string name, Vector3[] vectorArray)
     {
-        sw.WriteLine("\tpoint[] \"{0}\" 1", name);
-
+        essDataString += String.Format("\n\tpoint[] \"{0}\" 1", name);
         for(int i = 0; i < vectorArray.Length; ++i)
         {
-            sw.WriteLine("\t\t {0} {1} {2}", vectorArray[i].x, vectorArray[i].y, vectorArray[i].z);
+            essDataString += String.Format("\n\t\t {0} {1} {2}", vectorArray[i].x, vectorArray[i].y, vectorArray[i].z);
         }
     }
 
     public void AddCustomString(string str)
     {
-        sw.WriteLine("{0}", str);
+        essDataString += String.Format("\n{0}", str);
     }
 
     public void EndNode()
     {
-        sw.WriteLine("end");
+        essDataString += "\nend";
+    }
+
+    public string getEssDataString()
+    {
+        return essDataString;
     }
 }
