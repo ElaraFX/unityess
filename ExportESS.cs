@@ -97,31 +97,32 @@ public class ExportESS
         addDefaultMtl();
 
         // To do
-        GameObject[] allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
+        //GameObject[] allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
 
+        GameObject[] tagObjs = GameObject.FindGameObjectsWithTag("furniture");
         // GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
 
-        foreach( GameObject gameObj in allObjects )
+        foreach (GameObject gameObj in tagObjs)
         {
-            int findRet = Array.IndexOf( exportFurnitureModelTags, gameObj.tag );
+            //int findRet = Array.IndexOf( exportFurnitureModelTags, gameObj.tag );
 
-            if( findRet >= 0 )
+            //if( findRet >= 0 )
+            //{
+            MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent( "MeshFilter" );
+
+            if( viewedModelFilter )
             {
-                MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent( "MeshFilter" );
+                Mesh exportMesh = viewedModelFilter.mesh;
+                Vector3[] vertexs = exportMesh.vertices;
+                int[] indexs = exportMesh.GetIndices( 0 );
 
-                if( viewedModelFilter )
-                {
-                    Mesh exportMesh = viewedModelFilter.mesh;
-                    Vector3[] vertexs = exportMesh.vertices;
-                    int[] indexs = exportMesh.GetIndices( 0 );
+                Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
+                objMat = l2rMatrix * objMat;
 
-                    Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
-                    objMat = l2rMatrix * objMat;
-
-                    addRenderInst( gameObj.name, objMat.transpose, vertexs, indexs );
-                }
-
+                addRenderInst( gameObj.name, objMat.transpose, vertexs, indexs );
             }
+
+            //}
         }
 
         addInstanceGroup();
@@ -173,12 +174,44 @@ public class ExportESS
         //TODO:需要添加transform矩阵
     }
 
+    string addHDRIEnvMapShader(string hdriFileName, float rotation, float intensity)
+    {
+        string hdriBaseName = "hdri_env";
+        string uvGenName = hdriBaseName + "_uvgen";
+        essWriter.BeginNode("max_stduv", uvGenName);
+	    essWriter.AddToken("mapChannel", "uv0");
+        essWriter.AddScaler("uOffset", rotation * Mathf.Deg2Rad);
+	    essWriter.AddScaler("uScale", 1.0f);
+	    essWriter.AddBool("uWrap", true);
+	    essWriter.AddScaler("vScale", 1.0f);
+	    essWriter.AddBool("vWrap", true);
+	    essWriter.AddInt("slotType", 1);
+	    essWriter.AddInt("coordMapping", 1);
+	    essWriter.EndNode();
+
+        string bitmapName = hdriBaseName + "_bitmap";
+	    essWriter.BeginNode("max_bitmap", bitmapName);
+	    essWriter.LinkParam("tex_coords", uvGenName, "result");
+        essWriter.AddToken("tex_fileName", hdriFileName);
+	    essWriter.AddInt("tex_alphaSource", 0);
+	    essWriter.EndNode();
+
+        string stdoutName = hdriBaseName + "_stdout";
+	    essWriter.BeginNode("max_stdout", stdoutName);
+	    essWriter.AddInt("useColorMap", 0);
+	    essWriter.AddScaler("outputAmount", intensity);
+	    essWriter.LinkParam("stdout_color", bitmapName, "result");
+	    essWriter.EndNode();
+
+	    return stdoutName;
+    }
+
     void addGlobalEnvLight()
     {
-        essWriter.BeginNode( "output_result", "global_environment" );
-        Vector3 envColor = new Vector3( 0.42f, 0.80f, 0.98f );
-        essWriter.AddColor( "input", envColor );
-        essWriter.AddBool( "env_emits_GI", true );
+        string hdriShaderName = addHDRIEnvMapShader("003.hdr", 0, 1.0f);
+        essWriter.BeginNode("output_result", "global_environment");
+        essWriter.LinkParam("input", hdriShaderName, "result");
+        essWriter.AddBool("env_emits_GI", true);
         essWriter.EndNode();
 
         essWriter.BeginNode( "osl_shadergroup", "environment_shader" );
@@ -245,7 +278,7 @@ public class ExportESS
 
         renderInstList.Add( meshName );
     }
-
+   
     void addInstanceGroup()
     {
         essWriter.BeginNode( "instgroup", "world" );

@@ -96,7 +96,7 @@ public class EssWriter {
 
 	public void AddToken(string name, string value)
     {
-        essDataString.Append(String.Format("\n\ttoken \"{0}\" {1}", name, value));
+        essDataString.Append(String.Format("\n\ttoken \"{0}\" \"{1}\"", name, value));
     }
 
 	public void AddColor(string name, Vector4 value)
