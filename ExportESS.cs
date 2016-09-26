@@ -183,14 +183,25 @@ public class ExportESS
 
     void addDirLight( Light light )
     {
-        //暂时不需要导出灯光
         essWriter.BeginNode( "directlight", "dir_light" );
         essWriter.AddScaler( "intensity", light.intensity );
         essWriter.AddEnum( "face", "front" );
         essWriter.AddColor( "color", light.color );
         essWriter.EndNode();
 
-        //TODO:需要添加transform矩阵
+        //需要添加transform矩阵
+        string sunName = "dir_sun_light";        
+	    string instanceName = sunName + "_instance";
+	    essWriter.BeginNode("instance", instanceName);
+	    essWriter.AddRef("element",sunName);
+	    essWriter.AddBool("cast_shadow", false);
+	    essWriter.AddBool("shadow", true);
+        Matrix4x4 mat = l2rMatrix * light.transform.localToWorldMatrix * l2rMatrix;
+	    essWriter.AddMatrix("transform", mat.transpose);
+	    essWriter.AddMatrix("motion_transform", mat.transpose);
+	    essWriter.EndNode();
+
+        renderInstList.Add(instanceName);
     }
 
     string addHDRIEnvMapShader(string hdriFileName, float rotation, float intensity)
