@@ -197,6 +197,21 @@ public class EssWriter {
         essDataString.Append("\nend");
     }
 
+    public void BeginNameSpace(string spaceName)
+    {
+        essDataString.Append(String.Format("\nnamespace {0}", spaceName));
+    }
+
+    public void EndNameSpace()
+    {
+        essDataString.Append("\nend");
+    }
+
+    public void addParseEss(string essName)
+    {
+        essDataString.Append(String.Format("\n\tparse2 \"{0}\" on", essName));
+    }
+
     public string getEssDataString()
     {
         return essDataString.ToString();

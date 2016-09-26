@@ -20,9 +20,15 @@ using UnityEngine;
 
 public class ExportESS
 {
+    /**< MAX导出ESS默认的Inst Group Name */
+    string MAX_EXPORT_ESS_DEFAULT_INST_NAME = "mtoer_instgroup_00";
+
+    string MESH_SPACE_SUFFIX = "_space";
 
     /**< 需要导出的家具TAG类型 */
-    public string[] exportFurnitureModelTags = new[] { "furniture", "wall", "sofa", "window" };
+    public string[] exportFurnitureModelTags = new[] { "wall" };
+
+    public string[] mappingFurnitureModelTags = new[] { "furniture" };
 
     EssWriter essWriter = new EssWriter();
 
@@ -96,33 +102,46 @@ public class ExportESS
 
         addDefaultMtl();
 
-        // To do
-        //GameObject[] allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
 
-        GameObject[] tagObjs = GameObject.FindGameObjectsWithTag("furniture");
-        // GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
-
-        foreach (GameObject gameObj in tagObjs)
+        foreach(string tagStr in exportFurnitureModelTags)
         {
-            //int findRet = Array.IndexOf( exportFurnitureModelTags, gameObj.tag );
+            GameObject[] tagObjs = GameObject.FindGameObjectsWithTag(tagStr);
+            // GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
 
-            //if( findRet >= 0 )
-            //{
-            MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent( "MeshFilter" );
-
-            if( viewedModelFilter )
+            foreach (GameObject gameObj in tagObjs)
             {
-                Mesh exportMesh = viewedModelFilter.mesh;
-                Vector3[] vertexs = exportMesh.vertices;
-                int[] indexs = exportMesh.GetIndices( 0 );
+                MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent("MeshFilter");
 
-                Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
-                objMat = l2rMatrix * objMat;
+                if (viewedModelFilter)
+                {
+                    Mesh exportMesh = viewedModelFilter.mesh;
+                    Vector3[] vertexs = exportMesh.vertices;
+                    int[] indexs = exportMesh.GetIndices(0);
 
-                addRenderInst( gameObj.name, objMat.transpose, vertexs, indexs );
+                    Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
+                    objMat = l2rMatrix * objMat;
+
+                    addVertexRenderInst(gameObj.name, objMat.transpose, vertexs, indexs);
+                }
             }
+        }        
 
-            //}
+        foreach(string mappingTag in mappingFurnitureModelTags)
+        {
+            GameObject[] tagObjs = GameObject.FindGameObjectsWithTag(mappingTag);
+
+            foreach (GameObject gameObj in tagObjs)
+            {
+                MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent("MeshFilter");
+
+                if (viewedModelFilter)
+                {
+                    string meshName = gameObj.name;
+                    Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
+                    objMat = l2rMatrix * objMat;
+                    addMappingInst(meshName, objMat.transpose);
+                }                
+            }
         }
 
         addInstanceGroup();
@@ -253,7 +272,7 @@ public class ExportESS
         essWriter.EndNode();
     }
 
-    void addRenderInst( string meshName, Matrix4x4 transform, Vector3[] vertexs, int[] indexs )
+    void addVertexRenderInst( string meshName, Matrix4x4 transform, Vector3[] vertexs, int[] indexs )
     {
         string nodeName = meshName + "_node";
         if( !meshMap.ContainsKey( meshName ) )
@@ -277,6 +296,36 @@ public class ExportESS
         essWriter.EndNode();
 
         renderInstList.Add( meshName );
+    }
+
+    void addParseMesh(string meshName)
+    {
+        essWriter.BeginNameSpace(meshName + MESH_SPACE_SUFFIX);
+        essWriter.addParseEss(meshName + ".ess");
+        essWriter.EndNameSpace();
+    }
+
+    void addMappingInst(string meshName, Matrix4x4 tran)
+    {
+        if (!meshMap.ContainsKey(meshName))
+        {
+            addParseMesh(meshName);
+            meshMap.Add(meshName, 1);
+        }
+        else
+        {
+            meshMap[meshName] += 1;
+            meshName += meshMap[meshName];
+        }
+
+        essWriter.BeginNode("instance", meshName);
+        string instGroup = meshName + MESH_SPACE_SUFFIX + "::" + MAX_EXPORT_ESS_DEFAULT_INST_NAME;
+        essWriter.AddRef("element", instGroup);
+        essWriter.AddMatrix("transform", tran);
+        essWriter.AddMatrix("motion_transform", tran);
+        essWriter.EndNode();
+
+        renderInstList.Add(meshName);
     }
    
     void addInstanceGroup()
