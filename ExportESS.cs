@@ -30,6 +30,9 @@ public class ExportESS
 
     public string[] mappingFurnitureModelTags = new[] { "furniture" };
 
+    /**< 方向光TAG类型 */
+    string DIR_LIGHT_TAG = "dir_light";
+
     EssWriter essWriter = new EssWriter();
 
     Matrix4x4 l2rMatrix = new Matrix4x4();
@@ -87,7 +90,7 @@ public class ExportESS
 
         addEssOption();
 
-        addGlobalEnvLight();
+        addGlobalEnvLight("013.hdr");
 
         Camera cam = Camera.main;
 
@@ -102,6 +105,12 @@ public class ExportESS
 
         addDefaultMtl();
 
+        GameObject[] dirLights = GameObject.FindGameObjectsWithTag(DIR_LIGHT_TAG);
+        foreach(GameObject lightObj in dirLights)
+        {
+            Light light = (Light)lightObj.GetComponent("Light");
+            addDirLight(light);
+        }
 
         foreach(string tagStr in exportFurnitureModelTags)
         {
@@ -183,14 +192,13 @@ public class ExportESS
 
     void addDirLight( Light light )
     {
-        essWriter.BeginNode( "directlight", "dir_light" );
+        string sunName = "dir_sun_light";
+        essWriter.BeginNode( "directlight", sunName );
         essWriter.AddScaler( "intensity", light.intensity );
         essWriter.AddEnum( "face", "front" );
         essWriter.AddColor( "color", light.color );
         essWriter.EndNode();
-
-        //需要添加transform矩阵
-        string sunName = "dir_sun_light";        
+        
 	    string instanceName = sunName + "_instance";
 	    essWriter.BeginNode("instance", instanceName);
 	    essWriter.AddRef("element",sunName);
@@ -236,9 +244,9 @@ public class ExportESS
 	    return stdoutName;
     }
 
-    void addGlobalEnvLight()
+    void addGlobalEnvLight(string hdrImageName)
     {
-        string hdriShaderName = addHDRIEnvMapShader("003.hdr", 0, 1.0f);
+        string hdriShaderName = addHDRIEnvMapShader(hdrImageName, 0, 1.0f);
         essWriter.BeginNode("output_result", "global_environment");
         essWriter.LinkParam("input", hdriShaderName, "result");
         essWriter.AddBool("env_emits_GI", true);

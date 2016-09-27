@@ -199,12 +199,12 @@ public class EssWriter {
 
     public void BeginNameSpace(string spaceName)
     {
-        essDataString.Append(String.Format("\nnamespace {0}", spaceName));
+        essDataString.Append(String.Format("\nnamespace \"{0}\"", spaceName));
     }
 
     public void EndNameSpace()
     {
-        essDataString.Append("\nend");
+        essDataString.Append("\nend namespace");
     }
 
     public void addParseEss(string essName)
