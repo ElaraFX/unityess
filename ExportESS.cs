@@ -28,7 +28,7 @@ public class ExportESS
     /**< 需要导出的家具TAG类型 */
     public string[] exportFurnitureModelTags = new[] { "wall" };
 
-    public string[] mappingFurnitureModelTags = new[] { "furniture" };
+    //public string[] mappingFurnitureModelTags = new[] { "furniture" };
 
     /**< 方向光TAG类型 */
     string DIR_LIGHT_TAG = "dir_light";
@@ -112,16 +112,21 @@ public class ExportESS
             addDirLight(light);
         }
 
-        foreach(string tagStr in exportFurnitureModelTags)
+        // GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
+        GameObject[] furObjs = GameObject.FindGameObjectsWithTag("furniture");
+        GameObject[] wallObjs = GameObject.FindGameObjectsWithTag("wall");
+        GameObject[] allObjects = new GameObject[furObjs.Length + wallObjs.Length];
+        furObjs.CopyTo(allObjects, 0);
+        wallObjs.CopyTo(allObjects, furObjs.Length);
+
+        foreach(GameObject gameObj in allObjects)
         {
-            GameObject[] tagObjs = GameObject.FindGameObjectsWithTag(tagStr);
-            // GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
+            MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent("MeshFilter");
 
-            foreach (GameObject gameObj in tagObjs)
+            if (viewedModelFilter)
             {
-                MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent("MeshFilter");
-
-                if (viewedModelFilter)
+                int finder = Array.IndexOf(exportFurnitureModelTags, gameObj.tag);
+                if(finder >= 0)
                 {
                     Mesh exportMesh = viewedModelFilter.mesh;
                     Vector3[] vertexs = exportMesh.vertices;
@@ -132,26 +137,15 @@ public class ExportESS
 
                     addVertexRenderInst(gameObj.name, objMat.transpose, vertexs, indexs);
                 }
-            }
-        }        
-
-        foreach(string mappingTag in mappingFurnitureModelTags)
-        {
-            GameObject[] tagObjs = GameObject.FindGameObjectsWithTag(mappingTag);
-
-            foreach (GameObject gameObj in tagObjs)
-            {
-                MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent("MeshFilter");
-
-                if (viewedModelFilter)
+                else
                 {
                     string meshName = gameObj.name;
                     Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
                     objMat = l2rMatrix * objMat;
                     addMappingInst(meshName, objMat.transpose);
-                }                
+                }
             }
-        }
+        }        
 
         addInstanceGroup();
         addRenderCommand();
@@ -262,6 +256,8 @@ public class ExportESS
     void addDefaultMtl()
     {
         essWriter.BeginNode( "max_ei_standard", "standard_shader" );
+        essWriter.AddScaler("specular_weight", 0.0f);
+        essWriter.AddScaler("diffuse_weight", 0.9f);
         essWriter.EndNode();
 
         essWriter.BeginNode("backface_cull", "backface_shader");
