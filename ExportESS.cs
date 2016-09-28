@@ -135,14 +135,14 @@ public class ExportESS
                     Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
                     objMat = l2rMatrix * objMat;
 
-                    addVertexRenderInst(gameObj.name, objMat.transpose, vertexs, indexs);
+                    addVertexRenderInst(regularMeshName(gameObj.name), objMat.transpose, vertexs, indexs);
                 }
                 else
                 {
                     string meshName = gameObj.name;
                     Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
                     objMat = l2rMatrix * objMat;
-                    addMappingInst(meshName, objMat.transpose);
+                    addMappingInst(regularMeshName(meshName), objMat.transpose);
                 }
             }
         }        
@@ -153,6 +153,12 @@ public class ExportESS
         essWriter.Close();
 
         return essWriter.getEssDataString();
+    }
+
+    string regularMeshName(string inMeshName)
+    {
+        string[] retStrings = inMeshName.Split('&');
+        return retStrings[0];
     }
 
     void addCameraData( Camera cam )
