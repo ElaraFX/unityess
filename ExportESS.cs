@@ -2,15 +2,15 @@
  * Copyright (C) 2016 Rendease Co., Ltd.
  * All rights reserved.
  *
- * This program is commercial software: you must not redistribute it 
+ * This program is commercial software: you must not redistribute it
  * and/or modify it without written permission from Rendease Co., Ltd.
  *
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * End User License Agreement for more details.
  *
- * You should have received a copy of the End User License Agreement along 
+ * You should have received a copy of the End User License Agreement along
  * with this program.  If not, see <http://www.rendease.com/licensing/>
  *************************************************************************/
 
@@ -26,7 +26,7 @@ public class ExportESS
     string MESH_SPACE_SUFFIX = "_space";
 
     /**< 需要导出的家具TAG类型 */
-    public string[] exportFurnitureModelTags = new[] { "wall" };
+    public string[] exportFurnitureModelTags = new[] { "floor", "wall" };
 
     //public string[] mappingFurnitureModelTags = new[] { "furniture" };
 
@@ -84,7 +84,7 @@ public class ExportESS
     /** 导出场景接口
      * \return string ess的字符流数据
      */
-    public string ExportFromScene()
+    public string ExportFromScene( Camera cam )
     {
         resetData();
 
@@ -92,7 +92,7 @@ public class ExportESS
 
         addGlobalEnvLight("013.hdr");
 
-        Camera cam = Camera.main;
+        //Camera cam = Camera.main;
 
         if( null == cam )
         {
@@ -105,25 +105,32 @@ public class ExportESS
 
         addDefaultMtl();
 
-        GameObject[] dirLights = GameObject.FindGameObjectsWithTag(DIR_LIGHT_TAG);
-        foreach(GameObject lightObj in dirLights)
-        {
-            Light light = (Light)lightObj.GetComponent("Light");
-            addDirLight(light);
-        }
+        //GameObject[] dirLights = GameObject.FindGameObjectsWithTag(DIR_LIGHT_TAG);
+        //foreach(GameObject lightObj in dirLights)
+        //{
+        //    Light light = (Light)lightObj.GetComponent("Light");
+        //    addDirLight(light);
+        //}
 
-        // GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
-        GameObject[] furObjs = GameObject.FindGameObjectsWithTag("furniture");
-        GameObject[] wallObjs = GameObject.FindGameObjectsWithTag("wall");
-        GameObject[] allObjects = new GameObject[furObjs.Length + wallObjs.Length];
-        furObjs.CopyTo(allObjects, 0);
-        wallObjs.CopyTo(allObjects, furObjs.Length);
+         GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
+        //GameObject[] furObjs = GameObject.FindGameObjectsWithTag("furniture");
+        //GameObject[] wallObjs = GameObject.FindGameObjectsWithTag("wall");
+        //GameObject[] allObjects = new GameObject[furObjs.Length + wallObjs.Length];
+        //furObjs.CopyTo(allObjects, 0);
+        //wallObjs.CopyTo(allObjects, furObjs.Length);
 
         foreach(GameObject gameObj in allObjects)
         {
-            MeshFilter viewedModelFilter = (MeshFilter)gameObj.GetComponent("MeshFilter");
+            MeshFilter viewedModelFilter = null;
 
-            if (viewedModelFilter)
+            viewedModelFilter = gameObj.GetComponent<MeshFilter>();
+
+            if( null == viewedModelFilter )
+            {
+                viewedModelFilter = gameObj.transform.GetChild( 0 ).GetComponent<MeshFilter>();
+            }
+
+            if(viewedModelFilter)
             {
                 int finder = Array.IndexOf(exportFurnitureModelTags, gameObj.tag);
                 if(finder >= 0)
@@ -136,6 +143,8 @@ public class ExportESS
                     objMat = l2rMatrix * objMat;
 
                     addVertexRenderInst(regularMeshName(gameObj.name), objMat.transpose, vertexs, indexs);
+
+                    FindChild(gameObj.transform);
                 }
                 else
                 {
@@ -145,7 +154,7 @@ public class ExportESS
                     addMappingInst(regularMeshName(meshName), objMat.transpose);
                 }
             }
-        }        
+        }
 
         addInstanceGroup();
         addRenderCommand();
@@ -153,6 +162,34 @@ public class ExportESS
         essWriter.Close();
 
         return essWriter.getEssDataString();
+    }
+
+    private void FindChild( Transform child )
+    {
+        if( null != child )
+        {
+            int length = child.childCount;
+
+            for( int i = 0; i < length; i++ )
+            {
+                Transform childTrans = child.GetChild( i );
+
+                if( childTrans.CompareTag( "wall" ) )
+                {
+                    Mesh mesh = childTrans.GetComponent<Mesh>();
+                    Vector3[] vertexs = mesh.vertices;
+                    int[] indexs = mesh.GetIndices(0);
+
+                    Matrix4x4 objMat = childTrans.localToWorldMatrix;
+                    objMat = l2rMatrix * objMat;
+
+                    addVertexRenderInst(regularMeshName(childTrans.gameObject.name), objMat.transpose, vertexs, indexs);
+                }
+
+                FindChild( childTrans );
+            }
+
+        }
     }
 
     string regularMeshName(string inMeshName)
@@ -198,7 +235,7 @@ public class ExportESS
         essWriter.AddEnum( "face", "front" );
         essWriter.AddColor( "color", light.color );
         essWriter.EndNode();
-        
+
 	    string instanceName = sunName + "_instance";
 	    essWriter.BeginNode("instance", instanceName);
 	    essWriter.AddRef("element",sunName);
@@ -348,7 +385,7 @@ public class ExportESS
 
         renderInstList.Add(meshName);
     }
-   
+
     void addInstanceGroup()
     {
         essWriter.BeginNode( "instgroup", "world" );
