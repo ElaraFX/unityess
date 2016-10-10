@@ -30,6 +30,12 @@ public class ExportESS
 
     //public string[] mappingFurnitureModelTags = new[] { "furniture" };
 
+    /**< parse ess inst 绕 x 轴旋转角度 */
+    int ESS_ROTATE_ON_XAXIS_DEGREE = -90;
+
+    /**< parse ess inst 缩放系数 */
+    float ESS_SCALE_EFFI = 0.001f;
+
     /**< 方向光TAG类型 */
     string DIR_LIGHT_TAG = "dir_light";
 
@@ -112,7 +118,7 @@ public class ExportESS
         //    addDirLight(light);
         //}
 
-         GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
+        GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
         //GameObject[] furObjs = GameObject.FindGameObjectsWithTag("furniture");
         //GameObject[] wallObjs = GameObject.FindGameObjectsWithTag("wall");
         //GameObject[] allObjects = new GameObject[furObjs.Length + wallObjs.Length];
@@ -138,7 +144,7 @@ public class ExportESS
                     Mesh exportMesh = viewedModelFilter.mesh;
                     Vector3[] vertexs = exportMesh.vertices;
                     int[] indexs = exportMesh.GetIndices(0);
-
+                    
                     Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
                     objMat = l2rMatrix * objMat;
 
@@ -149,6 +155,10 @@ public class ExportESS
                 else
                 {
                     string meshName = gameObj.name;
+                    
+                    gameObj.transform.localScale = Vector3.one * ESS_SCALE_EFFI;
+                    gameObj.transform.Rotate(Vector3.right * ESS_ROTATE_ON_XAXIS_DEGREE);
+
                     Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
                     objMat = l2rMatrix * objMat;
                     addMappingInst(regularMeshName(meshName), objMat.transpose);
