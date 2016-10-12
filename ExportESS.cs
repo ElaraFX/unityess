@@ -39,6 +39,9 @@ public class ExportESS
     /**< 方向光TAG类型 */
     string DIR_LIGHT_TAG = "dir_light";
 
+    /**< 墙纸地板纹理默认类型 */
+    string WALL_FLOOR_TEX_TYPE = ".jpg";
+
     EssWriter essWriter = new EssWriter();
 
     Matrix4x4 l2rMatrix = new Matrix4x4();
@@ -46,6 +49,8 @@ public class ExportESS
     List<string> renderInstList = new List<string>();
 
     Dictionary<string, uint> meshMap = new Dictionary<string, uint>(); //meshname - ref count
+
+    Dictionary<string, uint> texMap = new Dictionary<string, uint>(); //texture name - ref count
 
     private static ExportESS instance = null;
 
@@ -109,7 +114,9 @@ public class ExportESS
 
         addCameraData( cam );
 
-        addDefaultMtl();
+        addWallFloorTexCoord();
+
+        //addDefaultMtl();
 
         //GameObject[] dirLights = GameObject.FindGameObjectsWithTag(DIR_LIGHT_TAG);
         //foreach(GameObject lightObj in dirLights)
@@ -118,12 +125,12 @@ public class ExportESS
         //    addDirLight(light);
         //}
 
-        GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
-        //GameObject[] furObjs = GameObject.FindGameObjectsWithTag("furniture");
-        //GameObject[] wallObjs = GameObject.FindGameObjectsWithTag("wall");
-        //GameObject[] allObjects = new GameObject[furObjs.Length + wallObjs.Length];
-        //furObjs.CopyTo(allObjects, 0);
-        //wallObjs.CopyTo(allObjects, furObjs.Length);
+        //GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
+        GameObject[] furObjs = GameObject.FindGameObjectsWithTag("furniture");
+        GameObject[] wallObjs = GameObject.FindGameObjectsWithTag("wall");
+        GameObject[] allObjects = new GameObject[furObjs.Length + wallObjs.Length];
+        furObjs.CopyTo(allObjects, 0);
+        wallObjs.CopyTo(allObjects, furObjs.Length);
 
         foreach(GameObject gameObj in allObjects)
         {
@@ -148,7 +155,9 @@ public class ExportESS
                     Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
                     objMat = l2rMatrix * objMat;
 
-                    addVertexRenderInst(regularMeshName(gameObj.name), objMat.transpose, vertexs, indexs);
+                    Vector2[] uvs = exportMesh.uv;
+                    string useMtlName = addDefaultMtl(gameObj.GetComponent<Renderer>().material.mainTexture.name);
+                    addVertexRenderInst(regularMeshName(gameObj.name), objMat.transpose, vertexs, indexs, uvs, useMtlName);
 
                     FindChild(gameObj.transform);
                 }
@@ -186,14 +195,17 @@ public class ExportESS
 
                 if( childTrans.CompareTag( "wall" ) )
                 {
-                    Mesh mesh = childTrans.GetComponent<Mesh>();
+                    Mesh mesh = childTrans.GetComponent<MeshFilter>().mesh;
                     Vector3[] vertexs = mesh.vertices;
                     int[] indexs = mesh.GetIndices(0);
+
+                    Vector2[] uvs = mesh.uv;
 
                     Matrix4x4 objMat = childTrans.localToWorldMatrix;
                     objMat = l2rMatrix * objMat;
 
-                    addVertexRenderInst(regularMeshName(childTrans.gameObject.name), objMat.transpose, vertexs, indexs);
+                    string useMtlName = addDefaultMtl(childTrans.GetComponent<Renderer>().material.mainTexture.name);
+                    addVertexRenderInst(regularMeshName(childTrans.gameObject.name), objMat.transpose, vertexs, indexs, uvs, useMtlName);
                 }
 
                 FindChild( childTrans );
@@ -213,8 +225,8 @@ public class ExportESS
         essWriter.BeginNode( "camera", "cam1" );
         essWriter.AddRef( "env_shader", "environment_shader" );
         essWriter.AddScaler( "aspect", cam.aspect );
-        essWriter.AddScaler( "focal", 50.0f );
-        essWriter.AddScaler( "aperture", 144.724029f );
+        essWriter.AddScaler( "focal", 120.0f );
+        essWriter.AddScaler( "aperture", 200.0f );
         essWriter.AddInt( "res_x", cam.pixelWidth );
         essWriter.AddInt( "res_y", cam.pixelHeight );
         essWriter.EndNode();
@@ -234,6 +246,8 @@ public class ExportESS
         essWriter.AddEnum( "filter", "gaussian" );
         essWriter.AddScaler( "filter_size", 3.0f );
         essWriter.AddScaler( "display_gamma", 2.2f );
+        essWriter.AddInt("diffuse_depth", 5);
+        essWriter.AddInt("sum_depth", 10);
         essWriter.EndNode();
     }
 
@@ -293,7 +307,7 @@ public class ExportESS
 
     void addGlobalEnvLight(string hdrImageName)
     {
-        string hdriShaderName = addHDRIEnvMapShader(hdrImageName, 0, 1.0f);
+        string hdriShaderName = addHDRIEnvMapShader(hdrImageName, 0, 20.0f);
         essWriter.BeginNode("output_result", "global_environment");
         essWriter.LinkParam("input", hdriShaderName, "result");
         essWriter.AddBool("env_emits_GI", true);
@@ -306,46 +320,90 @@ public class ExportESS
         essWriter.EndNode();
     }
 
-    void addDefaultMtl()
-    {
-        essWriter.BeginNode( "max_ei_standard", "standard_shader" );
-        essWriter.AddScaler("specular_weight", 0.0f);
-        essWriter.AddScaler("diffuse_weight", 0.9f);
-        essWriter.EndNode();
-
-        essWriter.BeginNode("backface_cull", "backface_shader");
-        essWriter.LinkParam("material", "standard_shader", "result");
-        essWriter.EndNode();
-
-        essWriter.BeginNode( "max_result", "result_stand_shader" );
-        essWriter.LinkParam("input", "backface_shader", "result");
-        essWriter.EndNode();
-
-        essWriter.BeginNode( "osl_shadergroup", "stand_shader_group" );
-        List<string> groups = new List<string>();
-        groups.Add( "result_stand_shader" );
-        essWriter.AddRefGroup( "nodes", groups );
-        essWriter.EndNode();
-
-        essWriter.BeginNode( "material", "standard_mtl" );
-        essWriter.AddRef( "surface_shader", "stand_shader_group" );
-        essWriter.EndNode();
+    void addWallFloorTexCoord()
+    {        
+        essWriter.BeginNode("max_stduv", "wall_floor_uvgen");
+	    essWriter.AddToken("mapChannel", "uv0");
+        essWriter.AddScaler("uOffset", 0.0f);
+	    essWriter.AddScaler("uScale", 1.0f);
+	    essWriter.AddBool("uWrap", true);
+	    essWriter.AddScaler("vScale", 1.0f);
+	    essWriter.AddBool("vWrap", true);
+	    essWriter.AddInt("slotType", 1);
+	    essWriter.AddInt("coordMapping", 1);
+	    essWriter.EndNode();
     }
 
-    void addEssMeshData( string nodeName, Vector3[] vertexs, int[] indexs )
+    string addDefaultMtl(string texName)
+    {
+        //bitmap         
+        string defaultMtlName = "standard_mtl";
+        if(!texMap.ContainsKey(texName))
+        {            
+            int currIndex = texMap.Count;
+            string texNode = texName.Split('.')[0] + "_texnode";
+            essWriter.BeginNode("max_bitmap", texNode);
+            essWriter.LinkParam("tex_coords", "wall_floor_uvgen", "result");
+            essWriter.AddToken("tex_fileName", texName + WALL_FLOOR_TEX_TYPE);
+            essWriter.AddInt("tex_alphaSource", 0);
+            essWriter.EndNode();
+
+            string stdShadar = "standard_shader" + currIndex;
+            essWriter.BeginNode( "max_ei_standard", stdShadar);
+            essWriter.AddScaler("specular_weight", 0.0f);
+            essWriter.AddScaler("diffuse_weight", 0.9f);
+            essWriter.LinkParam("diffuse_color", texNode, "result");
+            essWriter.EndNode();
+
+            string backfaceShader = "backface_shader" + currIndex;
+            essWriter.BeginNode("backface_cull", backfaceShader);
+            essWriter.LinkParam("material", stdShadar, "result");
+            essWriter.EndNode();
+
+            string resultStdShader = "result_stand_shader" + currIndex;
+            essWriter.BeginNode("max_result", resultStdShader);
+            essWriter.LinkParam("input", backfaceShader, "result");
+            essWriter.EndNode();
+
+            string stdShaderGroup = "stand_shader_group" + currIndex;
+            essWriter.BeginNode("osl_shadergroup", stdShaderGroup);
+            List<string> groups = new List<string>();
+            groups.Add( resultStdShader );
+            essWriter.AddRefGroup( "nodes", groups );
+            essWriter.EndNode();
+
+            string useMtlName = defaultMtlName + currIndex;
+            essWriter.BeginNode( "material",  useMtlName);
+            essWriter.AddRef("surface_shader", stdShaderGroup);
+            essWriter.EndNode();
+
+            texMap.Add(texName, (uint)currIndex);
+
+            return useMtlName;
+        }
+        else
+        {
+            return defaultMtlName + texMap[texName];
+        }
+        
+    }
+
+    void addEssMeshData(string nodeName, Vector3[] vertexs, int[] indexs, Vector2[] uvs)
     {
         essWriter.BeginNode( "poly", nodeName );
         essWriter.AddPointArray( "pos_list", vertexs );
         essWriter.AddIndexArray( "triangle_list", indexs, false );
+        essWriter.AddDeclare("vector[]", "uv0", "varying");
+        essWriter.AddUvArray("uv0", uvs);
         essWriter.EndNode();
     }
 
-    void addVertexRenderInst( string meshName, Matrix4x4 transform, Vector3[] vertexs, int[] indexs )
+    void addVertexRenderInst( string meshName, Matrix4x4 transform, Vector3[] vertexs, int[] indexs, Vector2[] uvs , string useMtlName)
     {
         string nodeName = meshName + "_node";
         if( !meshMap.ContainsKey( meshName ) )
         {
-            addEssMeshData( nodeName, vertexs, indexs );
+            addEssMeshData( nodeName, vertexs, indexs, uvs );
             meshMap.Add( meshName, 1 );
         }
         else
@@ -357,7 +415,7 @@ public class ExportESS
         essWriter.BeginNode( "instance", meshName );
         essWriter.AddRef( "element", nodeName );
         List<string> mtlList = new List<string>();
-        mtlList.Add( "standard_mtl" );
+        mtlList.Add( useMtlName );
         essWriter.AddRefGroup( "mtl_list", mtlList );
         essWriter.AddMatrix( "transform", transform );
         essWriter.AddMatrix( "motion_transform", transform );
@@ -375,6 +433,7 @@ public class ExportESS
 
     void addMappingInst(string meshName, Matrix4x4 tran)
     {
+        string essInstName = meshName;
         if (!meshMap.ContainsKey(meshName))
         {
             addParseMesh(meshName);
@@ -387,7 +446,7 @@ public class ExportESS
         }
 
         essWriter.BeginNode("instance", meshName);
-        string instGroup = meshName + MESH_SPACE_SUFFIX + "::" + MAX_EXPORT_ESS_DEFAULT_INST_NAME;
+        string instGroup = essInstName + MESH_SPACE_SUFFIX + "::" + MAX_EXPORT_ESS_DEFAULT_INST_NAME;
         essWriter.AddRef("element", instGroup);
         essWriter.AddMatrix("transform", tran);
         essWriter.AddMatrix("motion_transform", tran);

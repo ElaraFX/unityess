@@ -187,6 +187,15 @@ public class EssWriter {
         }
     }
 
+    public void AddUvArray(string name, Vector2[] vectorArray)
+    {
+        essDataString.Append(String.Format("\n\tvector[] \"{0}\" 1", name));
+        for (int i = 0; i < vectorArray.Length; ++i)
+        {
+            essDataString.Append(String.Format("\n\t\t {0} {1} {2}", vectorArray[i].x, vectorArray[i].y, 0));
+        }
+    }
+
     public void AddCustomString(string str)
     {
         essDataString.Append(String.Format("\n{0}", str));
