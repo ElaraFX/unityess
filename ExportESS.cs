@@ -34,7 +34,7 @@ public class ExportESS
     int ESS_ROTATE_ON_XAXIS_DEGREE = -90;
 
     /**< parse ess inst 缩放系数 */
-    float ESS_SCALE_EFFI = 0.001f;
+    Vector3 ESS_SCALE_EFFI = new Vector3( -0.001f, 0.001f, 0.001f );
 
     /**< 方向光TAG类型 */
     string DIR_LIGHT_TAG = "dir_light";
@@ -181,7 +181,9 @@ public class ExportESS
                 {
                     string meshName = gameObj.name;
 
-                    gameObj.transform.localScale = Vector3.one * ESS_SCALE_EFFI;
+                    Transform beforeTrans = gameObj.transform;
+
+                    gameObj.transform.localScale = ESS_SCALE_EFFI;
                     gameObj.transform.Rotate( Vector3.right * ESS_ROTATE_ON_XAXIS_DEGREE );
 
                     Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
@@ -236,7 +238,7 @@ public class ExportESS
 
                         float offsetZ = 0.2f;
 
-                        float portalLightIntensity = 10.0f;
+                        float portalLightIntensity = 5.0f;
 
                         childTrans.localScale = Vector3.one;
 
@@ -305,11 +307,11 @@ public class ExportESS
     {
         essWriter.BeginNode( "camera", "cam1" );
         //essWriter.AddRef( "env_shader", "environment_shader" );
-        essWriter.AddScaler( "aspect", cam.aspect );
-        essWriter.AddScaler( "focal", 150.0f );
+        essWriter.AddScaler( "aspect", 1.3333f );
+        essWriter.AddScaler( "focal", 280.0f );
         essWriter.AddScaler( "aperture", 400.0f );
-        essWriter.AddInt( "res_x", cam.pixelWidth );
-        essWriter.AddInt( "res_y", cam.pixelHeight );
+        essWriter.AddInt( "res_x", 800 );
+        essWriter.AddInt( "res_y", 600 );
         essWriter.EndNode();
 
         essWriter.BeginNode( "instance", "caminst1" );
@@ -329,6 +331,7 @@ public class ExportESS
         essWriter.AddScaler( "display_gamma", 2.2f );
         essWriter.AddInt( "diffuse_depth", 5 );
         essWriter.AddEnum( "engine", "GI cache" );
+        essWriter.AddScaler("GI_cache_radius", 0.2f);
         essWriter.EndNode();
     }
 
@@ -336,7 +339,7 @@ public class ExportESS
     {
         string sunName = "dir_sun_light";
         essWriter.BeginNode( "directlight", sunName );
-        essWriter.AddScaler( "intensity", light.intensity );
+        essWriter.AddScaler( "intensity", light.intensity * 5);
         essWriter.AddEnum( "face", "front" );
         essWriter.AddColor( "color", light.color );
         essWriter.AddScaler( "hardness", 0.9999f );
@@ -464,7 +467,7 @@ public class ExportESS
 
     string addDefaultMtl( string texName, Vector2 uvScale )
     {
-        //bitmap
+        //bitmap         
         string defaultMtlName = "standard_mtl";
         string defaultUvGenName = "wall_floor_uvgen";
 
