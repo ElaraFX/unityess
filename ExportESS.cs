@@ -329,6 +329,7 @@ public class ExportESS
         essWriter.AddEnum( "filter", "gaussian" );
         essWriter.AddScaler( "filter_size", 3.0f );
         essWriter.AddScaler( "display_gamma", 2.2f );
+        essWriter.AddScaler("texture_gamma", 2.2f);
         essWriter.AddInt( "diffuse_depth", 5 );
         essWriter.AddEnum( "engine", "GI cache" );
         essWriter.AddScaler("GI_cache_radius", 0.2f);
