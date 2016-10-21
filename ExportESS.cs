@@ -96,6 +96,8 @@ public class ExportESS
         portalLightNum = 0;
         exportTexNum = 0;
 
+        essWriter.ClearEssDataString();
+
         renderInstList.Clear();
         meshMap.Clear();
     }
@@ -126,13 +128,13 @@ public class ExportESS
 
         //addDefaultMtl();
 
-        GameObject dirLights = GameObject.FindGameObjectWithTag(DIR_LIGHT_TAG);
+        GameObject dirLights = GameObject.FindGameObjectWithTag( DIR_LIGHT_TAG );
 
         Light light = dirLights.GetComponent<Light>();
         //foreach(GameObject lightObj in dirLights)
         //{
-           // Light light = (Light)lightObj.GetComponent("Light");
-            addDirLight( light );
+        // Light light = (Light)lightObj.GetComponent("Light");
+        addDirLight( light );
         //}
 
         GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
@@ -329,10 +331,10 @@ public class ExportESS
         essWriter.AddEnum( "filter", "gaussian" );
         essWriter.AddScaler( "filter_size", 3.0f );
         essWriter.AddScaler( "display_gamma", 2.2f );
-        essWriter.AddScaler("texture_gamma", 2.2f);
+        essWriter.AddScaler( "texture_gamma", 2.2f );
         essWriter.AddInt( "diffuse_depth", 5 );
         essWriter.AddEnum( "engine", "GI cache" );
-        essWriter.AddScaler("GI_cache_radius", 0.2f);
+        essWriter.AddScaler( "GI_cache_radius", 0.2f );
         essWriter.EndNode();
     }
 
@@ -340,7 +342,7 @@ public class ExportESS
     {
         string sunName = "dir_sun_light";
         essWriter.BeginNode( "directlight", sunName );
-        essWriter.AddScaler( "intensity", light.intensity * 5);
+        essWriter.AddScaler( "intensity", light.intensity * 5 );
         essWriter.AddEnum( "face", "front" );
         essWriter.AddColor( "color", light.color );
         essWriter.AddScaler( "hardness", 0.9999f );
