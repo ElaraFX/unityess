@@ -128,14 +128,18 @@ public class ExportESS
 
         //addDefaultMtl();
 
-        GameObject dirLights = GameObject.FindGameObjectWithTag( DIR_LIGHT_TAG );
+        Light light = ParentNodeManager.Instance.lightCom;
 
-        Light light = dirLights.GetComponent<Light>();
-        //foreach(GameObject lightObj in dirLights)
-        //{
-        // Light light = (Light)lightObj.GetComponent("Light");
-        addDirLight( light );
-        //}
+        if( light )
+        {
+            addDirLight( light );
+        }
+        else
+        {
+            Debug.LogError( "the light is null-----" );
+        }
+        
+     
 
         GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
         //GameObject[] furObjs = GameObject.FindGameObjectsWithTag( "furniture" );
@@ -167,7 +171,7 @@ public class ExportESS
                     Vector3[] vertexs = exportMesh.vertices;
                     int[] indexs = exportMesh.GetIndices( 0 );
 
-                    Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
+                    Matrix4x4 objMat = CreateNewMatrix(gameObj.transform.localToWorldMatrix);
                     objMat = l2rMatrix * objMat;
 
                     Vector2[] uvs = exportMesh.uv;
@@ -223,7 +227,7 @@ public class ExportESS
                     Vector2[] uvs = mesh.uv;
                     uvs = revertUV( uvs );
 
-                    Matrix4x4 objMat = childTrans.localToWorldMatrix;
+                    Matrix4x4 objMat = CreateNewMatrix(childTrans.localToWorldMatrix);
                     objMat = l2rMatrix * objMat;
 
                     Vector2 uvScale = getUVScale( childTrans.localScale );
@@ -241,8 +245,8 @@ public class ExportESS
                         float offsetZ = 0.2f;
 
                         float portalLightIntensity = 5.0f;
-
-                        childTrans.localScale = Vector3.one;
+                        
+                        //childTrans.localScale = Vector3.one;
 
                         childTrans.position = window.position;
 
@@ -250,7 +254,9 @@ public class ExportESS
 
                         childTrans.Translate( -Vector3.forward * offsetZ );
 
-                        Matrix4x4 portalLightMat = l2rMatrix * childTrans.localToWorldMatrix * l2rMatrix;
+                        Matrix4x4 newTransMat = Matrix4x4.TRS( childTrans.position, childTrans.rotation, Vector3.one );
+
+                        Matrix4x4 portalLightMat = l2rMatrix * newTransMat * l2rMatrix;
 
                         Vector3 size = window.GetComponent<BoxCollider>().size * 1.2f;
 
@@ -599,5 +605,16 @@ public class ExportESS
     void addRenderCommand()
     {
         essWriter.AddRenderCommand( "world", "caminst1", "opt" );
+    }
+
+    Matrix4x4 CreateNewMatrix(Matrix4x4 srcMat)
+    {
+        Matrix4x4 newMat = new Matrix4x4();
+        newMat.SetRow(0, srcMat.GetRow(0));
+        newMat.SetRow(1, srcMat.GetRow(1));
+        newMat.SetRow(2, srcMat.GetRow(2));
+        newMat.SetRow(3, srcMat.GetRow(3));
+
+        return newMat;
     }
 }
