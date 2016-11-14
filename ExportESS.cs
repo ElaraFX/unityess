@@ -26,7 +26,7 @@ public class ExportESS
     string MESH_SPACE_SUFFIX = "_space";
 
     /**< 需要导出的家具TAG类型 */
-    public string[] exportFurnitureModelTags = new[] { "floor", "wall" };
+    public string[] exportFurnitureModelTags = new[] { "floor" };
 
     //public string[] mappingFurnitureModelTags = new[] { "furniture" };
 
@@ -177,8 +177,12 @@ public class ExportESS
                     Vector2[] uvs = exportMesh.uv;
                     uvs = revertUV( uvs );
 
-                    Vector2 uvScale = getUVScale( gameObj.transform.localScale );
-                    string useMtlName = addDefaultMtl( gameObj.GetComponent<Renderer>().material.mainTexture.name, uvScale );
+                    Material childMaterial = gameObj.GetComponent<Renderer>().material;
+
+                    Vector2 uvScale = getUVScale( childMaterial.mainTextureScale );
+
+                    string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, uvScale );
+
                     addVertexRenderInst( regularMeshName( gameObj.name ), objMat.transpose, vertexs, indexs, uvs, useMtlName );
 
                     FindChild( gameObj.transform );
@@ -218,7 +222,7 @@ public class ExportESS
             {
                 Transform childTrans = child.GetChild( i );
 
-                if( childTrans.CompareTag( "wall" ) )
+                if( childTrans.CompareTag( "outwall" ) )
                 {
                     Mesh mesh = childTrans.GetComponent<MeshFilter>().mesh;
                     Vector3[] vertexs = mesh.vertices;
@@ -230,9 +234,13 @@ public class ExportESS
                     Matrix4x4 objMat = CreateNewMatrix(childTrans.localToWorldMatrix);
                     objMat = l2rMatrix * objMat;
 
-                    Vector2 uvScale = getUVScale( childTrans.localScale );
-                    string useMtlName = addDefaultMtl( childTrans.GetComponent<Renderer>().material.mainTexture.name, uvScale );
-                    addVertexRenderInst( regularMeshName( childTrans.gameObject.name ), objMat.transpose, vertexs, indexs, uvs, useMtlName );
+                    Material childMaterial = childTrans.GetComponent<Renderer>().material;
+
+                    Vector2 uvScale = getUVScale( childMaterial.mainTextureScale );
+
+                    string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, uvScale );
+
+                    addVertexRenderInst( regularMeshName( childTrans.name ), objMat.transpose, vertexs, indexs, uvs, useMtlName );
 
                     BooleanRT booleanCom = childTrans.GetComponent<BooleanRT>();
 
