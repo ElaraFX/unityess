@@ -105,11 +105,11 @@ public class ExportESS
     /** 导出场景接口
      * \return string ess的字符流数据
      */
-    public string ExportFromScene( Camera cam )
+    public string ExportFromScene( Camera cam, bool isPreview = false )
     {
         resetData();
 
-        addEssOption();
+        addEssOption( isPreview );
 
         addGlobalEnvLight( "013.hdr" );
 
@@ -175,13 +175,12 @@ public class ExportESS
                     objMat = l2rMatrix * objMat;
 
                     Vector2[] uvs = exportMesh.uv;
+
                     uvs = revertUV( uvs );
 
                     Material childMaterial = gameObj.GetComponent<Renderer>().material;
 
-                    Vector2 uvScale = getUVScale( childMaterial.mainTextureScale );
-
-                    string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, uvScale );
+                    string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, childMaterial.mainTextureScale );
 
                     addVertexRenderInst( regularMeshName( gameObj.name ), objMat.transpose, vertexs, indexs, uvs, useMtlName );
 
@@ -194,6 +193,7 @@ public class ExportESS
                     Transform beforeTrans = gameObj.transform;
 
                     gameObj.transform.localScale = ESS_SCALE_EFFI;
+
                     gameObj.transform.Rotate( Vector3.right * ESS_ROTATE_ON_XAXIS_DEGREE );
 
                     Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
@@ -236,9 +236,7 @@ public class ExportESS
 
                     Material childMaterial = childTrans.GetComponent<Renderer>().material;
 
-                    Vector2 uvScale = getUVScale( childMaterial.mainTextureScale );
-
-                    string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, uvScale );
+                    string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, childMaterial.mainTextureScale );
 
                     addVertexRenderInst( regularMeshName( childTrans.name ), objMat.transpose, vertexs, indexs, uvs, useMtlName );
 
@@ -291,28 +289,6 @@ public class ExportESS
         return uvs;
     }
 
-    Vector2 getUVScale( Vector3 scale )
-    {
-        Vector2 uvScale = Vector2.one;
-        if( scale.x < 1.0f )
-        {
-            uvScale.x = scale.y;
-            uvScale.y = scale.z;
-        }
-        else if( scale.y < 1.0f )
-        {
-            uvScale.x = scale.x;
-            uvScale.y = scale.z;
-        }
-        else if( scale.z < 1.0f )
-        {
-            uvScale.x = scale.x;
-            uvScale.y = scale.y;
-        }
-
-        return uvScale;
-    }
-
     string regularMeshName( string inMeshName )
     {
         string[] retStrings = inMeshName.Split( '&' );
@@ -339,7 +315,7 @@ public class ExportESS
         essWriter.EndNode();
     }
 
-    void addEssOption()
+    void addEssOption( bool isPreview )
     {
         essWriter.BeginNode( "options", "opt" );
         essWriter.AddEnum( "filter", "gaussian" );
@@ -349,6 +325,11 @@ public class ExportESS
         essWriter.AddInt( "diffuse_depth", 5 );
         essWriter.AddEnum( "engine", "GI cache" );
         essWriter.AddScaler( "GI_cache_radius", 0.2f );
+
+        if( isPreview )
+        {
+            essWriter.AddBool( "GI_cache_preview", true );
+        }
         essWriter.EndNode();
     }
 
