@@ -57,6 +57,10 @@ public class ExportESS
 
     //Dictionary<string, uint> texMap = new Dictionary<string, uint>(); //texture name - ref count
 
+    private Dictionary<Transform, string> windowDic = new Dictionary<Transform, string>();
+
+    private Dictionary<Transform, string> tempDic = new Dictionary<Transform, string>();
+
     private static ExportESS instance = null;
 
     public static ExportESS Instance
@@ -100,6 +104,10 @@ public class ExportESS
 
         renderInstList.Clear();
         meshMap.Clear();
+
+        tempDic.Clear();
+
+        windowDic.Clear();
     }
 
     /** 导出场景接口
@@ -138,8 +146,13 @@ public class ExportESS
         {
             Debug.LogError( "the light is null-----" );
         }
-        
-     
+
+        List<Transform> floorList = ParentNodeManager.Instance.GetFloorChildList();
+
+        for( int i = 0, Imax = floorList.Count; i < Imax; i++ )
+        {
+            GetWindowDic( floorList[i] );
+        }
 
         GameObject[] allObjects = ParentNodeManager.Instance.GetChildObjArray();
         //GameObject[] furObjs = GameObject.FindGameObjectsWithTag( "furniture" );
@@ -165,6 +178,7 @@ public class ExportESS
             if( viewedModelFilter )
             {
                 int finder = Array.IndexOf( exportFurnitureModelTags, gameObj.tag );
+
                 if( finder >= 0 )
                 {
                     Mesh exportMesh = viewedModelFilter.mesh;
@@ -172,6 +186,7 @@ public class ExportESS
                     int[] indexs = exportMesh.GetIndices( 0 );
 
                     Matrix4x4 objMat = CreateNewMatrix(gameObj.transform.localToWorldMatrix);
+
                     objMat = l2rMatrix * objMat;
 
                     Vector2[] uvs = exportMesh.uv;
@@ -182,9 +197,9 @@ public class ExportESS
 
                     string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, childMaterial.mainTextureScale );
 
-                    addVertexRenderInst( regularMeshName( gameObj.name ), objMat.transpose, vertexs, indexs, uvs, useMtlName );
-
-                    FindChild( gameObj.transform );
+                    addVertexRenderInst( gameObj.name, objMat.transpose, vertexs, indexs, uvs, useMtlName );
+                   
+                    FindChild( gameObj.transform );                                 
                 }
                 else
                 {
@@ -192,12 +207,12 @@ public class ExportESS
 
                     Transform beforeTrans = gameObj.transform;
 
-                    gameObj.transform.localScale = ESS_SCALE_EFFI;
+                    Quaternion tempQua = Quaternion.Euler( beforeTrans.eulerAngles.x - 90, beforeTrans.eulerAngles.y, beforeTrans.eulerAngles.z );
 
-                    gameObj.transform.Rotate( Vector3.right * ESS_ROTATE_ON_XAXIS_DEGREE );
+                    Matrix4x4 objMat = Matrix4x4.TRS( beforeTrans.position,  tempQua, ESS_SCALE_EFFI ); //gameObj.transform.localToWorldMatrix;
 
-                    Matrix4x4 objMat = gameObj.transform.localToWorldMatrix;
                     objMat = l2rMatrix * objMat;
+
                     addMappingInst( regularMeshName( meshName ), objMat.transpose );
 
                 }
@@ -222,7 +237,7 @@ public class ExportESS
             {
                 Transform childTrans = child.GetChild( i );
 
-                if( childTrans.CompareTag( "outwall" ) )
+                if( childTrans.CompareTag( "insidewall" ) )
                 {
                     Mesh mesh = childTrans.GetComponent<MeshFilter>().mesh;
                     Vector3[] vertexs = mesh.vertices;
@@ -238,36 +253,33 @@ public class ExportESS
 
                     string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, childMaterial.mainTextureScale );
 
-                    addVertexRenderInst( regularMeshName( childTrans.name ), objMat.transpose, vertexs, indexs, uvs, useMtlName );
+                    addVertexRenderInst(childTrans.name, objMat.transpose, vertexs, indexs, uvs, useMtlName );                   
 
-                    BooleanRT booleanCom = childTrans.GetComponent<BooleanRT>();
+                }
+                else if( childTrans.CompareTag( "wall" ) )
+                {
+                    Dictionary<string, Transform> wallWindowDic = childTrans.GetComponent<WallClass>().windowDic;
 
-                    Transform window = null;
-
-                    if( null != booleanCom && null != booleanCom.obj2 )
+                    foreach( Transform window in wallWindowDic.Values )
                     {
-                        window = booleanCom.obj2;
+                        if( !windowDic.ContainsKey( window ) )
+                        {
+                            float offsetZ = -0.2f;
 
-                        float offsetZ = 0.2f;
+                            float portalLightIntensity = 0.8f;
 
-                        float portalLightIntensity = 5.0f;
-                        
-                        //childTrans.localScale = Vector3.one;
+                            Quaternion tempQua = Quaternion.Euler( window.eulerAngles.x, window.eulerAngles.y, window.eulerAngles.z ); //Quaternion.FromToRotation( childTrans.eulerAngles,Vector3.down * 90 );
 
-                        childTrans.position = window.position;
+                            Vector3 tempVec = window.position + window.forward * offsetZ;
 
-                        childTrans.Rotate( Vector3.down * 90 );
+                            Matrix4x4 newTransMat = Matrix4x4.TRS( tempVec, tempQua, Vector3.one ); 
 
-                        childTrans.Translate( -Vector3.forward * offsetZ );
+                            Matrix4x4 portalLightMat = l2rMatrix * newTransMat * l2rMatrix;
 
-                        Matrix4x4 newTransMat = Matrix4x4.TRS( childTrans.position, childTrans.rotation, Vector3.one );
+                            Vector3 size = window.GetComponent<BoxCollider>().size * 1.2f;
 
-                        Matrix4x4 portalLightMat = l2rMatrix * newTransMat * l2rMatrix;
-
-                        Vector3 size = window.GetComponent<BoxCollider>().size * 1.2f;
-
-                        addPortalLight( size.x, size.y, portalLightMat.transpose, portalLightIntensity );
-
+                            addPortalLight( size.x, size.y, portalLightMat.transpose, portalLightIntensity );
+                        }
                     }
 
                 }
@@ -275,6 +287,41 @@ public class ExportESS
                 FindChild( childTrans );
             }
 
+        }
+    }
+
+    private void GetWindowDic( Transform trans )
+    {
+        if( trans )
+        {
+            int childCount = trans.childCount;
+
+            for( int i = 0; i < childCount; i++ )
+            {
+                Transform child = trans.GetChild( i );
+
+                if( child.CompareTag( "wall" ) )
+                {
+                    BooleanRT wallBoolean = child.GetComponent<BooleanRT>();
+
+                    if( wallBoolean && wallBoolean.obj2 )
+                    {
+                        Transform temp = wallBoolean.obj2;
+
+                        if( tempDic.ContainsKey( temp ) )
+                        {
+                            windowDic.Add( temp, temp.name );
+                        }
+                        else
+                        {
+                            tempDic.Add( temp, temp.name );
+                        }
+                    }
+
+                }
+
+                GetWindowDic( child );
+            }
         }
     }
 
@@ -324,12 +371,22 @@ public class ExportESS
         essWriter.AddScaler( "texture_gamma", 2.2f );
         essWriter.AddInt( "diffuse_depth", 5 );
         essWriter.AddEnum( "engine", "GI cache" );
-        essWriter.AddScaler( "GI_cache_radius", 0.2f );
 
         if( isPreview )
         {
             essWriter.AddBool( "GI_cache_preview", true );
+            essWriter.AddScaler( "GI_cache_density", 1.0f );
+            essWriter.AddInt( "GI_cache_points", 10 );
+            essWriter.AddInt( "GI_cache_passes", 20 );
+            essWriter.AddScaler( "GI_cache_radius", 100.0f );
+            essWriter.AddInt( "max_samples", 4 );
+            essWriter.AddInt( "min_samples", 0 );
         }
+        else
+        {
+            essWriter.AddScaler( "GI_cache_radius", 0.2f );
+        }
+
         essWriter.EndNode();
     }
 
