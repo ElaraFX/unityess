@@ -59,7 +59,7 @@ public class ExportESS
 
     private Dictionary<Transform, string> windowDic = new Dictionary<Transform, string>();
 
-    private Dictionary<Transform, string> tempDic = new Dictionary<Transform, string>();
+    private Dictionary<Transform, string> tempDic = new Dictionary<Transform, string>();  
 
     private static ExportESS instance = null;
 
@@ -108,6 +108,7 @@ public class ExportESS
         tempDic.Clear();
 
         windowDic.Clear();
+      
     }
 
     /** 导出场景接口
@@ -204,12 +205,12 @@ public class ExportESS
                 else
                 {
                     string meshName = gameObj.name;
-
+                    
                     Transform beforeTrans = gameObj.transform;
-
+                   
                     Quaternion tempQua = Quaternion.Euler( beforeTrans.eulerAngles.x - 90, beforeTrans.eulerAngles.y, beforeTrans.eulerAngles.z );
-
-                    Matrix4x4 objMat = Matrix4x4.TRS( beforeTrans.position,  tempQua, ESS_SCALE_EFFI ); //gameObj.transform.localToWorldMatrix;
+                   
+                    Matrix4x4 objMat = Matrix4x4.TRS( beforeTrans.position, tempQua, ESS_SCALE_EFFI ); //gameObj.transform.localToWorldMatrix;
 
                     objMat = l2rMatrix * objMat;
 
@@ -252,10 +253,10 @@ public class ExportESS
                     Material childMaterial = childTrans.GetComponent<Renderer>().material;
 
                     string useMtlName = addDefaultMtl( childMaterial.mainTexture.name, childMaterial.mainTextureScale );
-
+                
                     addVertexRenderInst(childTrans.name, objMat.transpose, vertexs, indexs, uvs, useMtlName );                   
 
-                }
+                } 
                 else if( childTrans.CompareTag( "wall" ) )
                 {
                     Dictionary<string, Transform> wallWindowDic = childTrans.GetComponent<WallClass>().windowDic;
@@ -263,23 +264,34 @@ public class ExportESS
                     foreach( Transform window in wallWindowDic.Values )
                     {
                         if( !windowDic.ContainsKey( window ) )
-                        {
-                            float offsetZ = -0.2f;
+                        {                           
+                            float offsetZ = 0.2f;
 
-                            float portalLightIntensity = 0.8f;
+                            float portalLightIntensity = 1.0f;
 
-                            Quaternion tempQua = Quaternion.Euler( window.eulerAngles.x, window.eulerAngles.y, window.eulerAngles.z ); //Quaternion.FromToRotation( childTrans.eulerAngles,Vector3.down * 90 );
+                            BoxCollider collider = window.GetComponent<BoxCollider>();
+                         
+                            //Quaternion tempQua = Quaternion.Euler( window.eulerAngles.x, window.eulerAngles.y, window.eulerAngles.z );                           
+                            //chang the light direction from wall
+                            float Angle_Y = childTrans.localEulerAngles.y - 90;
 
-                            Vector3 tempVec = window.position + window.forward * offsetZ;
+                            if( Angle_Y < 0 )
+                            {
+                                Angle_Y += 360;
+                            }
 
+                            Quaternion tempQua = Quaternion.Euler( childTrans.localEulerAngles.x, Angle_Y, childTrans.localEulerAngles.z );                                  
+
+                            Vector3 tempVec = window.position + collider.center - window.forward * offsetZ;
+     
                             Matrix4x4 newTransMat = Matrix4x4.TRS( tempVec, tempQua, Vector3.one ); 
 
                             Matrix4x4 portalLightMat = l2rMatrix * newTransMat * l2rMatrix;
 
-                            Vector3 size = window.GetComponent<BoxCollider>().size * 1.2f;
+                            Vector3 size = collider.size;
 
                             addPortalLight( size.x, size.y, portalLightMat.transpose, portalLightIntensity );
-                        }
+                        }                       
                     }
 
                 }
@@ -302,22 +314,19 @@ public class ExportESS
 
                 if( child.CompareTag( "wall" ) )
                 {
-                    BooleanRT wallBoolean = child.GetComponent<BooleanRT>();
+                    Dictionary<string, Transform> wallWindowDic = child.GetComponent<WallClass>().windowDic;
 
-                    if( wallBoolean && wallBoolean.obj2 )
+                    foreach( Transform window in wallWindowDic.Values )
                     {
-                        Transform temp = wallBoolean.obj2;
-
-                        if( tempDic.ContainsKey( temp ) )
+                        if( tempDic.ContainsKey( window ) )
                         {
-                            windowDic.Add( temp, temp.name );
+                            windowDic[window] = window.name;
                         }
                         else
                         {
-                            tempDic.Add( temp, temp.name );
+                            tempDic.Add( window, window.name );
                         }
                     }
-
                 }
 
                 GetWindowDic( child );
